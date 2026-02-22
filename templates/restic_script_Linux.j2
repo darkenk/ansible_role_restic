@@ -61,6 +61,7 @@ export GOMAXPROCS={{ restic__max_cpus }}
 
 export RESTIC_REPOSITORY={{ restic_repos[item.repo].location }}
 export RESTIC_PASSWORD='{{ restic_repos[item.repo].password | regex_replace('\'', '\'\\\'\'') }}'
+{% set insecure_no_password = (restic_repos[item.repo].password is not defined or restic_repos[item.repo].password | length == 0) %}
 BACKUP_NAME={{ item.name }}
 {% if restic_repos[item.repo].google_project_id is defined %}
 export GOOGLE_PROJECT_ID={{ restic_repos[item.repo].google_project_id }}
@@ -273,7 +274,8 @@ else
 fi
 
 {% if item.stdin is defined and item.stdin == true %}
-  {{ item.stdin_cmd }} | {{ restic_install_path }}/restic backup \
+  {{ item.stdin_cmd }} | {{ restic_install_path }}/restic \
+    {% if insecure_no_password %}--insecure-no-password {% endif %} backup \
     --stdin $MODE_TAG \
     {{ tags(item.tags) }} \
     {{ stdin_filename(item.stdin_filename) }} \
@@ -282,7 +284,9 @@ fi
 {% else %}
 {
   {% if item.lvm is defined %}prepare_vol $BACKUP_SOURCE &&{% endif %}
-  {{ restic_install_path }}/restic backup {% if item.lvm is defined and item.src == '/' %}/rootfs{% endif %}$BACKUP_SOURCE $MODE_TAG \
+  {{ restic_install_path }}/restic \
+    {% if insecure_no_password %}--insecure-no-password {% endif %} \
+    backup {% if item.lvm is defined and item.src == '/' %}/rootfs{% endif %}$BACKUP_SOURCE $MODE_TAG \
     {{ tags(item.tags) }} \
     {% if item.exclude is defined %}{{ exclude(item.exclude) }}{% endif %} \
     $@
@@ -316,7 +320,9 @@ esac
 {#
   Define stdin forget commands
 #}
-{{ restic_install_path }}/restic forget {{ paths(item) }} {{ retention_pattern(item) }} {% if item.prune is defined and item.prune == true %}--prune{% endif %} {% if item.forget_extra_args is defined %}{{ item.forget_extra_args }}{% endif %} {{ forget_output_log }}
+{{ restic_install_path }}/restic \
+  {% if insecure_no_password %}--insecure-no-password {% endif %} \
+  forget {{ paths(item) }} {{ retention_pattern(item) }} {% if item.prune is defined and item.prune == true %}--prune{% endif %} {% if item.forget_extra_args is defined %}{{ item.forget_extra_args }}{% endif %} {{ forget_output_log }}
 if [[ $? -eq 0 ]]
 then
     echo "$(date -u '+%Y-%m-%d %H:%M:%S') OK" {{ forget_result_log }}

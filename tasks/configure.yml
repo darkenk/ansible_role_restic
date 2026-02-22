@@ -1,6 +1,9 @@
 ---
 - name: (CONF)Initialize repository
-  ansible.builtin.command: "{{ restic_install_path }}/restic init"
+  ansible.builtin.command: >-
+    {{ restic_install_path }}/restic
+    {% if item.value.password is not defined or item.value.password | length == 0 %}--insecure-no-password{% endif %}
+    init
   environment:
     RESTIC_REPOSITORY: "{{ item.value.location }}"
     RESTIC_PASSWORD: "{{ item.value.password }}"
